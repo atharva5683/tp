@@ -39,13 +39,23 @@ cp /home/ubuntu/app/app.log /tmp/logs/app/logs/
 cp -r /home/ubuntu/app/logs/* /tmp/logs/app/logs/ 2>/dev/null
 
 # Upload logs to S3
-echo "Uploading system logs to S3"
-aws s3 cp /tmp/logs/system/ s3://$BUCKET_NAME/system/ --recursive
+echo "Uploading system logs to S3 bucket: $BUCKET_NAME"
+aws s3 cp /tmp/logs/system/ s3://$BUCKET_NAME/system/ --recursive --debug > /tmp/s3_system_upload.log 2>&1
+UPLOAD_STATUS_SYSTEM=$?
 
-echo "Uploading application logs to S3"
-aws s3 cp /tmp/logs/app/ s3://$BUCKET_NAME/ --recursive
+echo "Uploading application logs to S3 bucket: $BUCKET_NAME"
+aws s3 cp /tmp/logs/app/ s3://$BUCKET_NAME/ --recursive --debug > /tmp/s3_app_upload.log 2>&1
+UPLOAD_STATUS_APP=$?
 
-echo "Log upload complete"
+if [ $UPLOAD_STATUS_SYSTEM -eq 0 ] && [ $UPLOAD_STATUS_APP -eq 0 ]; then
+  echo "Log upload completed successfully"
+else
+  echo "Log upload encountered issues. Check /tmp/s3_system_upload.log and /tmp/s3_app_upload.log for details"
+  # Print IAM role information for debugging
+  echo "Instance IAM role information:"
+  curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/ > /tmp/iam_role.log
+  cat /tmp/iam_role.log
+fi
 EOF
 
 chmod +x /home/ubuntu/upload_logs.sh
