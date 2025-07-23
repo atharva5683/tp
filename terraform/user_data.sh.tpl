@@ -5,7 +5,8 @@ cd /home/ubuntu
 git clone https://github.com/atharva5683/tech_eazy_devops_atharva5683 app
 cd app
 mvn clean package
-sudo nohup java -jar target/techeazy-devops-0.0.1-SNAPSHOT.jar --server.port=80 > app.log 2>&1 &
+# Run the jar with the correct name from pom.xml
+sudo nohup java -jar target/hellomvc-0.0.1-SNAPSHOT.jar --server.port=80 > app.log 2>&1 &
 
 # Wait for app to start
 sleep 30
