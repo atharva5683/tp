@@ -18,7 +18,6 @@ mkdir -p /home/ubuntu/app/logs
 
 # Create log upload script
 cat > /home/ubuntu/upload_logs.sh << 'EOF'
-cat > fixed_upload.sh << 'EOF'
 #!/bin/bash
 
 # Hardcode the bucket name
