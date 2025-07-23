@@ -2,7 +2,6 @@ provider "aws" {
   region = "ap-south-1"  # Mumbai region
 }
 
-# Security group for both instances
 resource "aws_security_group" "app_sg" {
   name        = "${var.instance_name}-sg"
   description = "Security group for ${var.environment} application"
@@ -29,7 +28,6 @@ resource "aws_security_group" "app_sg" {
   }
 }
 
-# Application instance with write-only S3 access
 resource "aws_instance" "app_server" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
@@ -38,6 +36,11 @@ resource "aws_instance" "app_server" {
   user_data              = file("${path.module}/../scripts/user_data.sh.tpl")
   iam_instance_profile   = aws_iam_instance_profile.s3_write_profile.name
   
+  # Force new resource creation
+  lifecycle {
+    create_before_destroy = true
+  }
+
   tags = {
     Name        = var.instance_name
     Environment = var.environment

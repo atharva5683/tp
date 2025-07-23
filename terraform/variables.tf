@@ -36,9 +36,14 @@ variable "github_repo" {
   default = "https://github.com/atharva5683/tech_eazy_devops_atharva5683"
 }
 
+variable "repo_url" {
+  type     = string
+  default  = "https://github.com/atharva5683/tech_eazy_devops_atharva5683"
+}
+
 variable "app_jar_path" {
   type    = string
-  default = "target/hellomvc-0.0.1-SNAPSHOT.jar"
+  default = "target/techeazy-devops-0.0.1-SNAPSHOT.jar"
 }
 
 variable "auto_shutdown_minutes" {
