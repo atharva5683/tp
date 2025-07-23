@@ -73,25 +73,9 @@ PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 echo "Testing application at http://$PUBLIC_IP/hello"
 curl -v http://$PUBLIC_IP/hello
 
-# Set up shutdown hook to upload logs before termination
-cat > /tmp/upload-logs.service << 'EOF'
-[Unit]
-Description=Upload logs to S3 before shutdown
-DefaultDependencies=no
-Before=shutdown.target reboot.target halt.target
-
-[Service]
-Type=oneshot
-ExecStart=/home/ubuntu/upload_logs.sh
-TimeoutStartSec=120
-
-[Install]
-WantedBy=halt.target reboot.target shutdown.target
-EOF
-
-sudo mv /tmp/upload-logs.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable upload-logs.service
+# Set up shutdown hook to upload logs before termination - simplest approach
+sudo cp /home/ubuntu/upload_logs.sh /etc/rc0.d/S01upload_logs
+sudo chmod +x /etc/rc0.d/S01upload_logs
 
 # Set up auto-shutdown after inactivity
 cat > /home/ubuntu/auto_shutdown.sh << 'EOF'
@@ -103,6 +87,8 @@ CURRENT_TIME=$(date +%s)
 if [ $(($CURRENT_TIME - $LAST_ACTIVITY)) -gt $(($INACTIVITY_THRESHOLD * 60)) ]; then
   echo "No activity detected for $INACTIVITY_THRESHOLD minutes. Uploading logs and shutting down..."
   /home/ubuntu/upload_logs.sh
+  # Wait for upload to complete
+  sleep 30
   sudo shutdown -h now
 fi
 EOF
@@ -111,3 +97,15 @@ chmod +x /home/ubuntu/auto_shutdown.sh
 
 # Add cron job to check for inactivity every 5 minutes
 echo "*/5 * * * * /home/ubuntu/auto_shutdown.sh" | crontab -
+
+# Create a more direct shutdown script that will definitely run
+sudo mkdir -p /lib/systemd/system-shutdown
+cat > /tmp/upload-logs-shutdown << 'EOF'
+#!/bin/bash
+# This script runs during shutdown process
+echo "[$(date)] Running log upload during shutdown..." > /tmp/shutdown-log.txt
+/home/ubuntu/upload_logs.sh >> /tmp/shutdown-log.txt 2>&1
+EOF
+
+sudo mv /tmp/upload-logs-shutdown /lib/systemd/system-shutdown/
+sudo chmod +x /lib/systemd/system-shutdown/upload-logs-shutdown
