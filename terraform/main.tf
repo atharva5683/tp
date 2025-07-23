@@ -43,6 +43,11 @@ resource "aws_instance" "app_server" {
   mvn clean package
   sudo java -jar target/techeazy-devops-0.0.1-SNAPSHOT.jar --server.port=80
   EOF
+  
+  # Force new resource creation
+  lifecycle {
+    create_before_destroy = true
+  }
 
   tags = {
     Name        = var.instance_name
