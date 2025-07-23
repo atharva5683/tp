@@ -57,7 +57,8 @@ resource "aws_iam_policy" "s3_write_policy" {
         Action = [
           "s3:CreateBucket",
           "s3:PutObject",
-          "s3:PutObjectAcl"
+          "s3:PutObjectAcl",
+          "s3:ListBucket"
         ]
         Effect   = "Allow"
         Resource = [
@@ -68,12 +69,10 @@ resource "aws_iam_policy" "s3_write_policy" {
       {
         Action = [
           "s3:GetObject",
-          "s3:GetObjectAcl",
-          "s3:ListBucket"
+          "s3:GetObjectAcl"
         ]
         Effect   = "Deny"
         Resource = [
-          "arn:aws:s3:::${var.s3_bucket_name}",
           "arn:aws:s3:::${var.s3_bucket_name}/*"
         ]
       }
