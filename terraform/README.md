@@ -6,63 +6,50 @@
 - SSH key pair in Mumbai region
 
 ## Setup
-Set AWS credentials:
+1. Set AWS credentials:
 ```
 $env:AWS_ACCESS_KEY_ID="your_access_key"
 $env:AWS_SECRET_ACCESS_KEY="your_secret_key"
 ```
 
-Update configuration in config files:
-- Edit configs/dev_config.tfvars or configs/prod_config.tfvars
-- Change key_name = "dev-key" to your SSH key name
-- Set s3_bucket_name to a globally unique bucket name (REQUIRED)
+2. Update config file:
+```
+cd terraform
+vi configs/dev_config.tfvars
+```
+- Set `key_name` to your SSH key name
+- Set `s3_bucket_name` to a globally unique name
 
 ## Deploy
 ```
-cd terraform
 terraform init
 terraform apply -var-file=configs/dev_config.tfvars
 ```
 
 ## Features
-- Deploys two EC2 instances in Mumbai region:
-  - Main application instance with write-only S3 access
+- Two EC2 instances:
+  - App instance with write-only S3 access
   - Verification instance with read-only S3 access
-- Updates system and installs:
-  - Java 21 (OpenJDK 21.0.2)
-  - Git
-  - Maven
-  - AWS CLI
-- Clones and builds app from GitHub
-- Runs Spring Boot application on port 80
-- Creates IAM roles:
-  - Read-only S3 access role (for verification instance)
-  - Write-only S3 access role (for application instance)
-- Creates private S3 bucket with 7-day lifecycle policy
-- Uploads logs to S3 before instance shutdown:
-  - System logs to s3://<bucket-name>/system/
-  - Application logs to s3://<bucket-name>/app/logs/
-- Auto-shutdown after configured inactivity period
+- Spring Boot app running on port 80
+- Private S3 bucket with 7-day lifecycle policy
+- Log upload to S3 before instance shutdown
+- Auto-shutdown after 60 minutes of inactivity
 
-## Accessing the Application
-Once deployed, the application can be accessed at:
+## Verify Deployment
+1. Access the application:
 ```
-http://<app-instance-public-ip>/hello
+http://<app_ip>/hello
 ```
-This endpoint will display the "Hello from Spring MVC!" message.
 
-## Verifying S3 Log Upload
-SSH into the verification instance and run the verification script:
+2. Check logs in S3 (from verification instance):
 ```
-ssh -i your-key.pem ubuntu@<verification-instance-public-ip>
+ssh -i your-key.pem ubuntu@<verify_ip>
 ./verify_logs.sh
 ```
-This will list all logs uploaded to S3 and demonstrate that the verification instance can read but not write to S3.
 
-## Manual Log Upload
-To manually upload logs from the application instance:
+3. Manually upload logs (from app instance):
 ```
-ssh -i your-key.pem ubuntu@<app-instance-public-ip>
+ssh -i your-key.pem ubuntu@<app_ip>
 ./upload_logs.sh
 ```
 
