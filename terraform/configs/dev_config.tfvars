@@ -1,0 +1,11 @@
+environment = "dev"
+instance_type = "t3.micro"
+ami_id = "ami-03f4878755434977f"
+key_name = "dev-key"
+target_port = 80
+instance_name = "dev-app-server"
+java_version = "21"
+github_repo = "https://github.com/atharva5683/tech_eazy_devops_atharva5683"
+app_jar_path = "target/techeazy-devops-0.0.1-SNAPSHOT.jar"
+auto_shutdown_minutes = 60
+verify_app_deployment = true
