@@ -74,7 +74,6 @@ echo "Testing application at http://$PUBLIC_IP/hello"
 curl -v http://$PUBLIC_IP/hello
 
 # Set up shutdown hook to upload logs before termination
-# Create systemd service for log upload on shutdown
 cat > /tmp/upload-logs.service << 'EOF'
 [Unit]
 Description=Upload logs to S3 before shutdown
@@ -84,7 +83,7 @@ Before=shutdown.target reboot.target halt.target
 [Service]
 Type=oneshot
 ExecStart=/home/ubuntu/upload_logs.sh
-TimeoutStartSec=0
+TimeoutStartSec=120
 
 [Install]
 WantedBy=halt.target reboot.target shutdown.target
@@ -93,11 +92,6 @@ EOF
 sudo mv /tmp/upload-logs.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable upload-logs.service
-
-# Also create traditional init.d script as backup
-echo "#!/bin/bash
-/home/ubuntu/upload_logs.sh" | sudo tee /etc/rc0.d/K01upload_logs
-sudo chmod +x /etc/rc0.d/K01upload_logs
 
 # Set up auto-shutdown after inactivity
 cat > /home/ubuntu/auto_shutdown.sh << 'EOF'
