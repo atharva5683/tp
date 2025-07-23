@@ -6,6 +6,6 @@ target_port = 80
 instance_name = "prod-app-server"
 java_version = "21"
 github_repo = "https://github.com/atharva5683/tech_eazy_devops_atharva5683"
-app_jar_path = "target/hellomvc-0.0.1-SNAPSHOT.jar"
+app_jar_path = "target/techeazy-devops-0.0.1-SNAPSHOT.jar"
 auto_shutdown_minutes = 240
 verify_app_deployment = true
