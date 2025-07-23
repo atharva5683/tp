@@ -33,17 +33,7 @@ resource "aws_instance" "app_server" {
   instance_type          = var.instance_type
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.app_sg.id]
-  user_data_replace_on_change = true
-
-  user_data = templatefile("${path.module}/user_data.sh.tpl", {
-    java_version          = var.java_version
-    github_repo           = var.github_repo
-    app_jar_path          = var.app_jar_path
-    target_port           = var.target_port
-    auto_shutdown_minutes = var.auto_shutdown_minutes
-    repo_url              = var.repo_url
-    verify_app_deployment = var.verify_app_deployment
-  })
+  user_data              = file("${path.module}/user_data.sh.tpl")
 
   tags = {
     Name        = var.instance_name
