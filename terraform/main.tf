@@ -34,6 +34,7 @@ resource "aws_instance" "app_server" {
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.app_sg.id]
   user_data              = file("${path.module}/../scripts/user_data.sh.tpl")
+  iam_instance_profile   = aws_iam_instance_profile.s3_write_profile.name
   
   # Force new resource creation
   lifecycle {

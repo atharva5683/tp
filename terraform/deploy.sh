@@ -22,7 +22,7 @@ if ! terraform apply -var-file="configs/$1_config.tfvars" -auto-approve; then
 fi
 
 # Get the instance ID from terraform output
-instance_id=$(terraform output -raw instance_id 2>/dev/null)
+instance_id=$(terraform output -raw app_instance_id 2>/dev/null)
 if [ -z "$instance_id" ]; then
     echo "Error: Failed to get instance ID. Make sure the instance was created properly."
     exit 1
@@ -51,8 +51,16 @@ done
 
 if [ "$instance_running" = true ]; then
     # Instance is running, deployment is already complete
-    public_ip=$(terraform output -raw public_ip)
-    echo "Deployment complete! Instance is running at IP: $public_ip"
+    app_ip=$(terraform output -raw app_instance_public_ip)
+    verify_ip=$(terraform output -raw verification_instance_public_ip)
+    app_url=$(terraform output -raw application_url)
+    bucket=$(terraform output -raw s3_bucket_name)
+    
+    echo "Deployment complete!"
+    echo "Application instance is running at IP: $app_ip"
+    echo "Verification instance is running at IP: $verify_ip"
+    echo "Application URL: $app_url"
+    echo "S3 bucket for logs: $bucket"
     echo "Instance will auto-stop after configured time."
 else
     echo "Error: Instance failed to reach running state. Deployment aborted."
