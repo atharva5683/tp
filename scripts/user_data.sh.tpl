@@ -20,7 +20,7 @@ mkdir -p /home/ubuntu/app/logs
 cat > /home/ubuntu/upload_logs.sh << 'EOF'
 #!/bin/bash
 
-# Get the bucket name from parameter or environment
+# Get the bucket name from Terraform variable
 BUCKET_NAME="${s3_bucket_name}"
 
 echo "Starting log upload to S3 bucket: $BUCKET_NAME"

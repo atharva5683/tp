@@ -33,7 +33,10 @@ resource "aws_instance" "app_server" {
   instance_type          = var.instance_type
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.app_sg.id]
-  user_data              = file("${path.module}/../scripts/user_data.sh.tpl")
+  user_data              = templatefile("${path.module}/../scripts/user_data.sh.tpl", {
+    s3_bucket_name = var.s3_bucket_name,
+    auto_shutdown_minutes = var.auto_shutdown_minutes
+  })
   iam_instance_profile   = aws_iam_instance_profile.s3_write_profile.name
   
   # Force new resource creation
@@ -42,7 +45,8 @@ resource "aws_instance" "app_server" {
   }
 
   tags = {
-    Name        = var.instance_name
-    Environment = var.environment
+    Name          = var.instance_name
+    Environment   = var.environment
+    s3_bucket_name = var.s3_bucket_name
   }
 }
