@@ -2,7 +2,7 @@ cat > fixed_upload.sh << 'EOF'
 #!/bin/bash
 
 # Hardcode the bucket name
-BUCKET_NAME="techeazy-logs-bucket-atharva"
+BUCKET_NAME=${s3_bucket_name}
 
 echo "Starting log upload to S3 bucket: $BUCKET_NAME"
 
