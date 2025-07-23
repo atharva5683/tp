@@ -4,6 +4,20 @@
 sudo apt-get update
 sudo apt-get install -y openjdk-${java_version}-jdk maven git awscli
 
+# Verify Java installation
+JAVA_HOME=/usr/lib/jvm/java-${java_version}-openjdk-amd64
+export JAVA_HOME
+export PATH=$JAVA_HOME/bin:$PATH
+
+# Check Java version
+java -version
+if [ $? -ne 0 ]; then
+  echo "Java installation failed. Trying alternative approach..."
+  sudo apt-get update
+  sudo apt-get install -y openjdk-${java_version}-jdk-headless
+  java -version
+fi
+
 # Clone and build application
 cd /home/ubuntu
 git clone ${github_repo} app
@@ -30,7 +44,19 @@ EOF
 chmod +x /home/ubuntu/upload_logs.sh
 
 # Run the application
-sudo nohup java -jar ${app_jar_path} --server.port=${target_port} > app.log 2>&1 &
+export JAVA_HOME=/usr/lib/jvm/java-${java_version}-openjdk-amd64
+export PATH=$JAVA_HOME/bin:$PATH
+
+# Check if JAR file exists
+if [ -f "${app_jar_path}" ]; then
+  echo "Starting application from ${app_jar_path}"
+  sudo nohup java -jar ${app_jar_path} --server.port=${target_port} > app.log 2>&1 &
+  echo "Application started with PID: $!"
+else
+  echo "ERROR: JAR file ${app_jar_path} not found!"
+  echo "Contents of target directory:"
+  ls -la target/
+fi
 
 # Set up shutdown hook to upload logs
 echo "#!/bin/bash

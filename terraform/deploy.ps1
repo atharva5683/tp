@@ -62,6 +62,36 @@ if ($instanceRunning) {
     try {
         $publicIp = terraform output -raw public_ip
         Write-Host "Deployment complete! Instance is running at IP: $publicIp"
+        
+        # Wait for application to start
+        Write-Host "Waiting for application to start..."
+        $maxAppAttempts = 10
+        $appAttempts = 0
+        $appRunning = $false
+        
+        do {
+            $appAttempts++
+            Write-Host "Checking application status (attempt $appAttempts of $maxAppAttempts)..."
+            
+            try {
+                $response = Invoke-WebRequest -Uri "http://$publicIp/health" -TimeoutSec 5 -ErrorAction SilentlyContinue
+                if ($response.StatusCode -eq 200) {
+                    $appRunning = $true
+                    Write-Host "Application is now running!"
+                    break
+                }
+            } catch {
+                Write-Host "Application not ready yet. Waiting 10 seconds..."
+                Start-Sleep -Seconds 10
+            }
+        } while ($appAttempts -lt $maxAppAttempts -and -not $appRunning)
+        
+        if ($appRunning) {
+            Write-Host "Application successfully deployed and running at: http://$publicIp"
+        } else {
+            Write-Host "WARNING: Application may not be running correctly. Check logs on the instance."
+        }
+        
         Write-Host "Instance will auto-stop after configured time."
     } catch {
         Write-Error "Failed to get public IP, but instance is running."
