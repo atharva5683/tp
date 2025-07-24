@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.example</groupId>
-    <artifactId>hellomvc</artifactId>
+    <artifactId>techeazy-devops</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <n>Spring Boot Hello MVC</n>
     <description>Simple Spring Boot project with MVC only</description>

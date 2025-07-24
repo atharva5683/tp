@@ -46,7 +46,7 @@ To manually start the application:
 ```
 ssh -i your-key.pem ubuntu@your-instance-ip
 cd /home/ubuntu/app
-java -jar target/hellomvc-0.0.1-SNAPSHOT.jar
+java -jar target/techeazy-devops-0.0.1-SNAPSHOT.jar
 ```
 
 ## Log Management

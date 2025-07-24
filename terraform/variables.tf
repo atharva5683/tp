@@ -38,7 +38,7 @@ variable "github_repo" {
 
 variable "app_jar_path" {
   type    = string
-  default = "target/hellomvc-0.0.1-SNAPSHOT.jar"
+  default = "target/techeazy-devops-0.0.1-SNAPSHOT.jar"
 }
 
 variable "auto_shutdown_minutes" {

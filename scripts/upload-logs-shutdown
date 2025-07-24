@@ -1,29 +1,36 @@
 #!/bin/bash
 # This script runs during shutdown process to upload logs to S3
 
+# Make sure we have enough time to complete the upload
+sleep 2
+
+# Create a separate log file that will survive the shutdown process
+LOG_FILE=/tmp/shutdown-upload.log
+touch $LOG_FILE
+chmod 666 $LOG_FILE
+
 # Log all actions with timestamps
-exec > /var/log/shutdown-upload.log 2>&1
+exec > $LOG_FILE 2>&1
 echo "[$(date)] Starting log upload during shutdown..."
 
-# Get the bucket name from instance tags
-INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
-BUCKET_NAME=$(aws ec2 describe-tags --region $REGION --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=s3_bucket_name" --query "Tags[0].Value" --output text)
+# Try to get from environment variable
+if [ -f /etc/environment ]; then
+  source /etc/environment
+fi
+BUCKET_NAME=$S3_BUCKET_NAME
 
-# If bucket name not found in tags, try environment variable
+# If still not found, try to get from instance tags
 if [ -z "$BUCKET_NAME" ] || [ "$BUCKET_NAME" == "None" ]; then
-  # Try to get from environment variable
-  if [ -f /etc/environment ]; then
-    source /etc/environment
-  fi
-  BUCKET_NAME=$S3_BUCKET_NAME
+  INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+  REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+  BUCKET_NAME=$(aws ec2 describe-tags --region $REGION --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=s3_bucket_name" --query "Tags[0].Value" --output text)
 fi
 
 echo "[$(date)] Using S3 bucket: $BUCKET_NAME"
 
 # Create log directories in S3 bucket structure
 mkdir -p /tmp/logs/system
-mkdir -p /tmp/logs/app/logs
+mkdir -p /tmp/logs/app
 
 # Copy system logs
 echo "[$(date)] Copying system logs..."
@@ -31,31 +38,21 @@ cp /var/log/cloud-init-output.log /tmp/logs/system/ 2>/dev/null
 cp /var/log/cloud-init.log /tmp/logs/system/ 2>/dev/null
 cp /var/log/syslog /tmp/logs/system/ 2>/dev/null
 cp /var/log/user-data.log /tmp/logs/system/ 2>/dev/null
-cp /var/log/shutdown-upload.log /tmp/logs/system/ 2>/dev/null
+cp $LOG_FILE /tmp/logs/system/ 2>/dev/null
 
 # Copy application logs
 echo "[$(date)] Copying application logs..."
-cp /home/ubuntu/app/app.log /tmp/logs/app/logs/ 2>/dev/null
-cp -r /home/ubuntu/app/logs/* /tmp/logs/app/logs/ 2>/dev/null
+cp /home/ubuntu/app/app.log /tmp/logs/app/ 2>/dev/null
+cp -r /home/ubuntu/app/logs/* /tmp/logs/app/ 2>/dev/null
 
-# Upload logs to S3
-echo "[$(date)] Uploading system logs to S3..."
-aws s3 cp /tmp/logs/system/ s3://$BUCKET_NAME/system/ --recursive
-UPLOAD_STATUS_SYSTEM=$?
+# Check AWS credentials
+echo "[$(date)] Checking AWS credentials..."
+aws sts get-caller-identity
+AWS_STATUS=$?
 
-echo "[$(date)] Uploading application logs to S3..."
-aws s3 cp /tmp/logs/app/ s3://$BUCKET_NAME/ --recursive
-UPLOAD_STATUS_APP=$?
-
-if [ $UPLOAD_STATUS_SYSTEM -eq 0 ] && [ $UPLOAD_STATUS_APP -eq 0 ]; then
-  echo "[$(date)] Log upload completed successfully"
-else
-  echo "[$(date)] Log upload encountered issues."
-  echo "[$(date)] System logs upload status: $UPLOAD_STATUS_SYSTEM"
-  echo "[$(date)] Application logs upload status: $UPLOAD_STATUS_APP"
-  
-  # Try with explicit credentials from instance metadata
-  echo "[$(date)] Trying with explicit credentials from instance metadata..."
+# If AWS credentials not available, try to get them from instance metadata
+if [ $AWS_STATUS -ne 0 ]; then
+  echo "[$(date)] Getting credentials from instance metadata..."
   ROLE_NAME=$(curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/ || echo "")
   
   if [ -n "$ROLE_NAME" ]; then
@@ -64,10 +61,53 @@ else
     export AWS_SECRET_ACCESS_KEY=$(echo $CREDS | grep -o '"SecretAccessKey" : "[^"]*"' | cut -d '"' -f 4)
     export AWS_SESSION_TOKEN=$(echo $CREDS | grep -o '"Token" : "[^"]*"' | cut -d '"' -f 4)
     
-    echo "[$(date)] Retrying upload with explicit credentials..."
-    aws s3 cp /tmp/logs/system/ s3://$BUCKET_NAME/system/ --recursive
-    aws s3 cp /tmp/logs/app/ s3://$BUCKET_NAME/ --recursive
+    echo "[$(date)] Got temporary credentials from instance metadata"
   fi
 fi
 
+# Upload logs to S3 with maximum retries
+echo "[$(date)] Uploading system logs to S3..."
+for i in {1..3}; do
+  aws s3 cp /tmp/logs/system/ s3://$BUCKET_NAME/system/ --recursive
+  UPLOAD_STATUS_SYSTEM=$?
+  
+  if [ $UPLOAD_STATUS_SYSTEM -eq 0 ]; then
+    echo "[$(date)] System logs upload successful"
+    break
+  else
+    echo "[$(date)] System logs upload failed (attempt $i), retrying..."
+    sleep 2
+  fi
+done
+
+echo "[$(date)] Uploading application logs to S3..."
+for i in {1..3}; do
+  aws s3 cp /tmp/logs/app/ s3://$BUCKET_NAME/ --recursive
+  UPLOAD_STATUS_APP=$?
+  
+  if [ $UPLOAD_STATUS_APP -eq 0 ]; then
+    echo "[$(date)] Application logs upload successful"
+    break
+  else
+    echo "[$(date)] Application logs upload failed (attempt $i), retrying..."
+    sleep 2
+  fi
+done
+
+# Final status
+if [ $UPLOAD_STATUS_SYSTEM -eq 0 ] && [ $UPLOAD_STATUS_APP -eq 0 ]; then
+  echo "[$(date)] All logs uploaded successfully"
+else
+  echo "[$(date)] Some logs failed to upload"
+  echo "[$(date)] System logs status: $UPLOAD_STATUS_SYSTEM"
+  echo "[$(date)] Application logs status: $UPLOAD_STATUS_APP"
+fi
+
+# Copy the final log to S3 directly
+echo "[$(date)] Uploading shutdown log itself..."
+aws s3 cp $LOG_FILE s3://$BUCKET_NAME/system/shutdown-upload.log
+
 echo "[$(date)] Shutdown log upload process complete"
+
+# Force sync to ensure all data is written
+sync
