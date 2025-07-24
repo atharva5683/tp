@@ -22,9 +22,9 @@ if ! terraform apply -var-file="configs/$1_config.tfvars" -auto-approve; then
 fi
 
 # Get the instance ID from terraform output
-instance_id=$(terraform output -raw app_instance_id 2>/dev/null)
+instance_id=$(terraform output -raw instance_id 2>/dev/null)
 if [ -z "$instance_id" ]; then
-    echo "Error: Failed to get instance ID. Make sure the instance was created properly."
+    echo "Error: Failed to get instance ID"
     exit 1
 fi
 
@@ -50,20 +50,38 @@ while [ $attempts -lt $max_attempts ] && [ "$instance_running" = false ]; do
 done
 
 if [ "$instance_running" = true ]; then
-    # Instance is running, deployment is already complete
-    app_ip=$(terraform output -raw app_instance_public_ip)
-    verify_ip=$(terraform output -raw verification_instance_public_ip)
-    app_url=$(terraform output -raw application_url)
-    bucket=$(terraform output -raw s3_bucket_name)
+    public_ip=$(terraform output -raw public_ip)
+    echo "Instance is running at IP: $public_ip"
     
-    echo "Deployment complete!"
-    echo "Application instance is running at IP: $app_ip"
-    echo "Verification instance is running at IP: $verify_ip"
-    echo "Application URL: $app_url"
-    echo "S3 bucket for logs: $bucket"
+    # Wait for application to start and verify it's working
+    echo "Waiting for application to start..."
+    app_max_attempts=20
+    app_attempts=0
+    app_running=false
+    
+    while [ $app_attempts -lt $app_max_attempts ] && [ "$app_running" = false ]; do
+        app_attempts=$((app_attempts+1))
+        echo "Checking application (attempt $app_attempts of $app_max_attempts)..."
+        
+        if curl -f -s "http://$public_ip/hello" > /dev/null 2>&1; then
+            app_running=true
+            echo "Application is responding!"
+            break
+        else
+            echo "Application not ready yet. Waiting 15 seconds..."
+            sleep 15
+        fi
+    done
+    
+    if [ "$app_running" = true ]; then
+        echo "Deployment successful! Application is running at: http://$public_ip/hello"
+    else
+        echo "WARNING: Application may not be running correctly. Check instance logs."
+        echo "SSH to instance: ssh -i your-key.pem ubuntu@$public_ip"
+    fi
+    
     echo "Instance will auto-stop after configured time."
 else
-    echo "Error: Instance failed to reach running state. Deployment aborted."
-    echo "You may need to manually clean up resources with: terraform destroy -var-file='configs/$1_config.tfvars' -auto-approve"
+    echo "Error: Instance failed to reach running state"
     exit 1
 fi
