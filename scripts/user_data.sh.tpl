@@ -38,23 +38,44 @@ cp /var/log/syslog /tmp/logs/system/
 cp /home/ubuntu/app/app.log /tmp/logs/app/logs/
 cp -r /home/ubuntu/app/logs/* /tmp/logs/app/logs/ 2>/dev/null
 
+# Check AWS credentials and IAM role
+echo "Checking AWS credentials and IAM role..."
+aws sts get-caller-identity || echo "No AWS credentials found"
+
+# Check if instance profile is attached
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+ROLE_NAME=$(curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/ || echo "No IAM role found")
+echo "Instance ID: $INSTANCE_ID"
+echo "IAM Role: $ROLE_NAME"
+
 # Upload logs to S3
 echo "Uploading system logs to S3 bucket: $BUCKET_NAME"
-aws s3 cp /tmp/logs/system/ s3://$BUCKET_NAME/system/ --recursive --debug > /tmp/s3_system_upload.log 2>&1
+aws s3 cp /tmp/logs/system/ s3://$BUCKET_NAME/system/ --recursive
 UPLOAD_STATUS_SYSTEM=$?
 
 echo "Uploading application logs to S3 bucket: $BUCKET_NAME"
-aws s3 cp /tmp/logs/app/ s3://$BUCKET_NAME/ --recursive --debug > /tmp/s3_app_upload.log 2>&1
+aws s3 cp /tmp/logs/app/ s3://$BUCKET_NAME/ --recursive
 UPLOAD_STATUS_APP=$?
 
 if [ $UPLOAD_STATUS_SYSTEM -eq 0 ] && [ $UPLOAD_STATUS_APP -eq 0 ]; then
   echo "Log upload completed successfully"
 else
-  echo "Log upload encountered issues. Check /tmp/s3_system_upload.log and /tmp/s3_app_upload.log for details"
-  # Print IAM role information for debugging
-  echo "Instance IAM role information:"
-  curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/ > /tmp/iam_role.log
-  cat /tmp/iam_role.log
+  echo "Log upload encountered issues."
+  echo "System logs upload status: $UPLOAD_STATUS_SYSTEM"
+  echo "Application logs upload status: $UPLOAD_STATUS_APP"
+  
+  # Try with explicit credentials from instance metadata
+  if [ -n "$ROLE_NAME" ]; then
+    echo "Trying with explicit credentials from instance metadata..."
+    CREDS=$(curl -s http://169.254.169.254/latest/meta-data/iam/security-credentials/$ROLE_NAME)
+    export AWS_ACCESS_KEY_ID=$(echo $CREDS | grep -o '"AccessKeyId" : "[^"]*"' | cut -d '"' -f 4)
+    export AWS_SECRET_ACCESS_KEY=$(echo $CREDS | grep -o '"SecretAccessKey" : "[^"]*"' | cut -d '"' -f 4)
+    export AWS_SESSION_TOKEN=$(echo $CREDS | grep -o '"Token" : "[^"]*"' | cut -d '"' -f 4)
+    
+    echo "Retrying upload with explicit credentials..."
+    aws s3 cp /tmp/logs/system/ s3://$BUCKET_NAME/system/ --recursive
+    aws s3 cp /tmp/logs/app/ s3://$BUCKET_NAME/ --recursive
+  fi
 fi
 EOF
 
@@ -73,9 +94,8 @@ PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 echo "Testing application at http://$PUBLIC_IP/hello"
 curl -v http://$PUBLIC_IP/hello
 
-# Set up shutdown hook to upload logs before termination - simplest approach
-sudo cp /home/ubuntu/upload_logs.sh /etc/rc0.d/S01upload_logs
-sudo chmod +x /etc/rc0.d/S01upload_logs
+# Set up shutdown hook to upload logs before termination
+# Using systemd service and system-shutdown script only
 
 # Set up auto-shutdown after inactivity
 cat > /home/ubuntu/auto_shutdown.sh << 'EOF'
@@ -100,12 +120,32 @@ echo "*/5 * * * * /home/ubuntu/auto_shutdown.sh" | crontab -
 
 # Create a more direct shutdown script that will definitely run
 sudo mkdir -p /lib/systemd/system-shutdown
-cat > /tmp/upload-logs-shutdown << 'EOF'
-#!/bin/bash
-# This script runs during shutdown process
-echo "[$(date)] Running log upload during shutdown..." > /tmp/shutdown-log.txt
-/home/ubuntu/upload_logs.sh >> /tmp/shutdown-log.txt 2>&1
-EOF
 
+# Copy the improved shutdown script
+cp /home/ubuntu/app/scripts/upload-logs-shutdown /tmp/upload-logs-shutdown
 sudo mv /tmp/upload-logs-shutdown /lib/systemd/system-shutdown/
 sudo chmod +x /lib/systemd/system-shutdown/upload-logs-shutdown
+
+# Store S3 bucket name in environment file for shutdown script
+echo "S3_BUCKET_NAME=${s3_bucket_name}" | sudo tee -a /etc/environment
+
+# Create a systemd service for shutdown
+cat > /tmp/upload-logs.service << 'EOF'
+[Unit]
+Description=Upload logs to S3 before shutdown
+DefaultDependencies=no
+Before=shutdown.target reboot.target halt.target
+
+[Service]
+Type=oneshot
+ExecStart=/lib/systemd/system-shutdown/upload-logs-shutdown
+TimeoutStartSec=120
+RemainAfterExit=yes
+
+[Install]
+WantedBy=halt.target reboot.target shutdown.target
+EOF
+
+sudo mv /tmp/upload-logs.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable upload-logs.service
