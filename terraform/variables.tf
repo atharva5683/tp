@@ -33,12 +33,12 @@ variable "java_version" {
 
 variable "github_repo" {
   type    = string
-  default = "https://github.com/atharva5683/tech_eazy_devops_atharva5683"
+  default = "https://github.com/Trainings-TechEazy/test-repo-for-devops"
 }
 
 variable "app_jar_path" {
   type    = string
-  default = "target/techeazy-devops-0.0.1-SNAPSHOT.jar"
+  default = "target/hellomvc-0.0.1-SNAPSHOT.jar"
 }
 
 variable "auto_shutdown_minutes" {
