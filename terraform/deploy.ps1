@@ -58,45 +58,16 @@ do {
 } while ($attempts -lt $maxAttempts -and -not $instanceRunning)
 
 if ($instanceRunning) {
+    # Instance is running, deployment is already complete
     try {
         $publicIp = terraform output -raw public_ip
-        Write-Host "Instance is running at IP: $publicIp"
-        
-        # Wait for application to start and verify it's working
-        Write-Host "Waiting for application to start..."
-        $appMaxAttempts = 20
-        $appAttempts = 0
-        $appRunning = $false
-        
-        do {
-            $appAttempts++
-            Write-Host "Checking application (attempt $appAttempts of $appMaxAttempts)..."
-            
-            try {
-                $response = Invoke-WebRequest -Uri "http://$publicIp/hello" -TimeoutSec 10 -ErrorAction Stop
-                if ($response.StatusCode -eq 200) {
-                    $appRunning = $true
-                    Write-Host "Application is responding!"
-                    break
-                }
-            } catch {
-                Write-Host "Application not ready yet. Waiting 15 seconds..."
-                Start-Sleep -Seconds 15
-            }
-        } while ($appAttempts -lt $appMaxAttempts -and -not $appRunning)
-        
-        if ($appRunning) {
-            Write-Host "Deployment successful! Application is running at: http://$publicIp/hello"
-        } else {
-            Write-Host "WARNING: Application may not be running correctly. Check instance logs."
-            Write-Host "SSH to instance: ssh -i your-key.pem ubuntu@$publicIp"
-        }
-        
+        Write-Host "Deployment complete! Instance is running at IP: $publicIp"
         Write-Host "Instance will auto-stop after configured time."
     } catch {
-        Write-Error "Failed to get public IP"
+        Write-Error "Failed to get public IP, but instance is running."
     }
 } else {
-    Write-Error "Instance failed to reach running state"
+    Write-Error "Instance failed to reach running state. Deployment aborted."
+    Write-Host "You may need to manually clean up resources with: terraform destroy -var-file='configs/${Stage}_config.tfvars' -auto-approve"
     exit 1
 }

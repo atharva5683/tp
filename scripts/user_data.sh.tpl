@@ -82,7 +82,7 @@ EOF
 chmod +x /home/ubuntu/upload_logs.sh
 
 # Run the jar with the correct name from pom.xml
-sudo nohup java -jar ${app_jar_path} --server.port=${target_port} > app.log 2>&1 &
+sudo nohup java -jar target/hellomvc-0.0.1-SNAPSHOT.jar --server.port=80 > app.log 2>&1 &
 
 # Wait for app to start
 sleep 30
@@ -91,8 +91,8 @@ sleep 30
 PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
 
 # Verify app is running by checking /hello endpoint
-echo "Testing application at http://$PUBLIC_IP:${target_port}/hello"
-curl -v http://$PUBLIC_IP:${target_port}/hello
+echo "Testing application at http://$PUBLIC_IP/hello"
+curl -v http://$PUBLIC_IP/hello
 
 # Create a direct shutdown script that will definitely run
 sudo mkdir -p /lib/systemd/system-shutdown
