@@ -22,7 +22,7 @@ if ! terraform apply -var-file="configs/$1_config.tfvars" -auto-approve; then
 fi
 
 # Get outputs
-public_ip=$(terraform output -raw public_ip)
+public_ip=$(terraform output -raw app_instance_public_ip)
 app_url=$(terraform output -raw application_url)
 bucket=$(terraform output -raw s3_bucket_name)
 
