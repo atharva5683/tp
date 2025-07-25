@@ -35,7 +35,11 @@ resource "aws_instance" "app_server" {
   vpc_security_group_ids = [aws_security_group.app_sg.id]
   user_data              = templatefile("${path.module}/../scripts/user_data.sh.tpl", {
     s3_bucket_name = var.s3_bucket_name,
-    auto_shutdown_minutes = var.auto_shutdown_minutes
+    auto_shutdown_minutes = var.auto_shutdown_minutes,
+    java_version = var.java_version,
+    github_repo = var.github_repo,
+    app_jar_path = var.app_jar_path,
+    target_port = var.target_port
   })
   iam_instance_profile   = aws_iam_instance_profile.s3_write_profile.name
   
