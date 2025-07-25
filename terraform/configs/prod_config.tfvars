@@ -9,3 +9,4 @@ github_repo = "https://github.com/Trainings-TechEazy/test-repo-for-devops"
 app_jar_path = "target/hellomvc-0.0.1-SNAPSHOT.jar"
 auto_shutdown_minutes = 240
 verify_app_deployment = true
+s3_bucket_name = "techeazy-logs-bucket-atharva"

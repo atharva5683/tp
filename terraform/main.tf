@@ -33,18 +33,20 @@ resource "aws_instance" "app_server" {
   instance_type          = var.instance_type
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.app_sg.id]
-
-  user_data = templatefile("${path.module}/../scripts/user_data.sh.tpl", {
-    java_version          = var.java_version
-    github_repo           = var.github_repo
-    app_jar_path          = var.app_jar_path
-    target_port           = var.target_port
+  user_data              = templatefile("${path.module}/../scripts/user_data.sh.tpl", {
+    s3_bucket_name = var.s3_bucket_name,
     auto_shutdown_minutes = var.auto_shutdown_minutes
-    verify_app_deployment = var.verify_app_deployment
   })
+  iam_instance_profile   = aws_iam_instance_profile.s3_write_profile.name
+  
+  # Force new resource creation
+  lifecycle {
+    create_before_destroy = true
+  }
 
   tags = {
-    Name        = var.instance_name
-    Environment = var.environment
+    Name          = var.instance_name
+    Environment   = var.environment
+    s3_bucket_name = var.s3_bucket_name
   }
 }

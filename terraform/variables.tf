@@ -51,3 +51,12 @@ variable "verify_app_deployment" {
   type        = bool
   default     = true
 }
+
+variable "s3_bucket_name" {
+  description = "Name of the S3 bucket for storing logs"
+  type        = string
+  validation {
+    condition     = length(var.s3_bucket_name) > 0
+    error_message = "S3 bucket name must be provided."
+  }
+}

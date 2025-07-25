@@ -24,8 +24,9 @@ fi
 # Get outputs
 public_ip=$(terraform output -raw app_instance_public_ip)
 app_url=$(terraform output -raw application_url)
-
+bucket=$(terraform output -raw s3_bucket_name)
 
 echo "Deployment complete!"
 echo "Application URL: $app_url"
+echo "S3 bucket for logs: $bucket"
 echo "Instance will auto-stop after configured time."
